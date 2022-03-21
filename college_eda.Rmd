@@ -1,0 +1,302 @@
+---
+title: "college_eda"
+author: "Isaac"
+date: '2022-03-14'
+output: html_document
+---
+## Abstract
+As a project for my gap-year volunteer program. I started to work on some exploratory data analysis for the non-profit I help out with. As they have a focus on college mentorship across the U.S, this project had an emphasis on exploring what are the key characteristics of the colleges where we currently mentor at, with the hopes that by understanding what these key indicators are through data, it could aid in the discovery of new colleges where the non-profit can start new chapters of college mentorship programs for students. The data being used is sourced from the U.S government college scorecard database. A comprehensive and recent dataset that gathers demographic, admission, academic, and financial info of all colleges across the U.S. It is updated yearly and I am using their most recently dataset. 
+
+## techniques used
+In this project, to quickly discern the differences between relevant variables, I decided to summarize findings through using correspondence analysis (CA) and linear regression comparing variables to take a closer look at individual relationships. One thing to note is that a lot of the variables I worked with are categorical in nature, so correspondence analysis is the right tool to be able to do data analysis, as I'll explain in my findings
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, echo=FALSE}
+
+#installing relevant packages
+#install.packages("dplyr")
+#install.packages("ggplot2")
+#install.packages("FactoMineR")
+#install.packages("Rcpp")
+library(dplyr)
+library(ggplot2)
+library(FactoMineR)
+
+
+```
+
+
+```{r, echo=FALSE}
+setwd("~/Documents/collegeproject/CollegeScorecard_Raw_data_02072022")
+dat <- read.csv(file = "MERGED2019_20_PP.csv")
+
+```
+
+
+### Data Cleaning 
+
+Though the worksheet came in as a CSV a lot of the variable types were not accurate most of the numerical data had been imported as character.
+```{r, echo=FALSE}
+region_names <- c('0' = "U.S. Service Schools", 
+                 '1'= "New England",
+                 '2'= "Mid East",
+                 '3'= "Great Lakes",
+                 '4'= "Plains",
+                 '5'= "Southeast",
+                 '6'= "Southwest",
+                 '7'= "Rocky Mountain",
+                 '8'= "Far West",
+                 '9'= "Outlying Areas")
+                 
+                 
+dat$REGION <- as.character(dat$REGION)
+dat$REGION <- region_names[dat$REGION]
+
+
+```
+
+```{r,echo=FALSE}
+# mapping numerical values with their categorical meanings
+ccbasic_names  <-  c("-2" = "Not applicable",
+       "0" = "(Not classified)",
+       "1" = "Associate's Colleges: High Transfer-High Traditional",
+       "2" = "Associate's Colleges: High Transfer-Mixed Traditional/Nontraditional",
+       "3" = "Associate's Colleges: High Transfer-High Nontraditional",
+       "4" = "Associate's Colleges: Mixed Transfer/Career & Technical-High Traditional",
+       "5" = "Associate's Colleges: Mixed Transfer/Career & Technical-Mixed Traditional/Nontraditional",
+       "6" = "Associate's Colleges: Mixed Transfer/Career & Technical-High Nontraditional",
+       "7" = "Associate's Colleges: High Career & Technical-High Traditional",
+       "8" = "Associate's Colleges: High Career & Technical-Mixed Traditional/Nontraditional",
+       "9" = "Associate's Colleges: High Career & Technical-High Nontraditional",
+       "10" = "Special Focus Two-Year: Health Professions",
+       "11" = "Special Focus Two-Year: Technical Professions",
+       "12" = "Special Focus Two-Year: Arts & Design",
+       "13" = "Special Focus Two-Year: Other Fields",
+       "14" = "Baccalaureate/Associate's Colleges: Associate's Dominant",
+       "15" = "Doctoral Universities: Very High Research Activity",
+       "16" = "Doctoral Universities: High Research Activity",
+       "17" = "Doctoral/Professional Universities",
+       "18" = "Master's Colleges & Universities: Larger Programs",
+       "19" = "Master's Colleges & Universities: Medium Programs",
+       "20" = "Master's Colleges & Universities: Small Programs",
+       "21" = "Baccalaureate Colleges: Arts & Sciences Focus",
+       "22" = "Baccalaureate Colleges: Diverse Fields",
+       "23" = "Baccalaureate/Associate's Colleges: Mixed Baccalaureate/Associate's",
+       "24" = "Special Focus Four-Year: Faith-Related Institutions",
+       "25" = "Special Focus Four-Year: Medical Schools & Centers",
+       "26" = "Special Focus Four-Year: Other Health Professions Schools",
+       "27" = "Special Focus Four-Year: Engineering Schools",
+       "28" = "Special Focus Four-Year: Other Technology-Related Schools",
+       "29" = "Special Focus Four-Year: Business & Management Schools",
+       "30" = "Special Focus Four-Year: Arts, Music & Design Schools",
+       "31" = "Special Focus Four-Year: Law Schools",
+       "32" = "Special Focus Four-Year: Other Special Focus Institutions",
+       "33" = "Tribal Colleges")
+
+dat$CCBASIC <- ccbasic_names[dat$CCBASIC]
+#table(dat$CCBASIC)
+```
+
+```{r,echo=FALSE}
+  ccugprof_names <- c( "-2" ="N/A",
+       "0" ='Not classified (Exclusively Graduate)',
+       "1" ='Two-year, higher part-time',
+       "2" ='Two-year, mixed part/full-time',
+       "3" ='Two-year, medium full-time',
+       "4" ='Two-year, higher full-time',
+       "5" ='Four-year, higher part-time',
+       "6" ='Four-year, medium full-time, inclusive, lower transfer-in',
+       "7" ='Four-year, medium full-time, inclusive, higher transfer-in',
+       "8" ='Four-year, medium full-time, selective, lower transfer-in',
+       "9" ='Four-year, medium full-time , selective, higher transfer-in',
+       "10" ='Four-year, full-time, inclusive, lower transfer-in',
+       "11" ='Four-year, full-time, inclusive, higher transfer-in',
+       "12" ='Four-year, full-time, selective, lower transfer-in',
+       "13" ='Four-year, full-time, selective, higher transfer-in',
+       "14" ='Four-year, full-time, more selective, lower transfer-in',
+       "15" ='Four-year, full-time, more selective, higher transfer-in' )
+
+dat$CCUGPROF <- ccugprof_names[dat$CCUGPROF]
+
+#table(dat$CCUGPROF)
+
+
+
+```
+
+```{r, echo=FALSE}
+dat <- dat %>% mutate_at(c(37:98), as.numeric)
+```
+
+
+```{r, echo=FALSE}
+gp  <- c(
+      "American University",
+      "Azusa Pacific University",
+      "Babson College",
+      "Bentley University",
+      "Boston College",
+      "Boston University",
+      "Brandeis University",
+      "Bryn Mawr College",
+      "California State Polytechnic University-Pomona",
+      "California Institute of Technology",
+      "Carnegie Mellon University",
+      "Claremont McKenna College",
+      "Columbia University in the City of New York",
+      "California State University-Sacramento",
+      "Drexel University",
+      "George Mason University",
+      "George Washington University",
+      "Georgetown University",
+      "Harvard University",
+      "Haverford College",
+      "Johns Hopkins University",
+      "Massachusetts Institute of Technology",
+      "New York University",
+      "North Carolina State University at Raleigh",
+      "New Jersey Institute of Technology",
+      "Northeastern University",
+      "Northwestern University",
+      "Ohio State University-Main Campus",
+      "Princeton University",
+      "Purdue University-Main Campus",
+      "Rutgers University-New Brunswick",
+      "San Diego State University",
+      "San Francisco State University",
+      "San Jose State University",
+      "Santa Clara University",
+      "Stanford University",
+      "Stevens Institute of Technology",
+      "Seattle University",
+      "Stony Brook University",
+      "Swarthmore College",
+      "Texas State University",
+      "Tufts University",
+      "University of California-Berkeley",
+      "University of California-Davis",
+      "University of California-Irvine",
+      "University of California-Los Angeles",
+      "University of California-Merced",
+      "University of California-Riverside",
+      "University of California-San Diego",
+      "University of California-Santa Barbara",
+      "University of California-Santa Cruz",
+      "University of Illinois Urbana-Champaign",
+      "University of Maryland-College Park",
+      "University of North Carolina at Chapel Hill",
+      "University of Chicago",
+      "University of Minnesota-Twin Cities",
+      "University of Michigan-Ann Arbor",
+      "University of Pittsburgh-Pittsburgh Campus",
+      "University of Virginia-Main Campus",
+      "University of Washington-Seattle Campus",
+      "University of Wisconsin-Madison",
+      "University of Pennsylvania",
+      "University of Southern California",
+      "University of San Francisco",
+      "The University of Texas at Austin",
+      "Villanova University",
+      "Wellesley College",
+      "Westmont College"
+      )
+
+
+
+```
+
+
+
+```{r}
+
+region_ccbasic <- table(dat$CCBASIC, dat$REGION) 
+
+CA(region_ccbasic)
+```
+```{r}
+farwest_4yr <- dat %>% filter(REGION == "Far West") %>% select(c(1:316))
+
+farwest_ccbasic_stabbr <-table(farwest_4yr$CCUGPROF, farwest_4yr$STABBR)
+
+farwest_ccbasic_stabbr
+
+CA_farwest_ccbasic_stabbr <- CA(farwest_ccbasic_stabbr)
+
+plot(CA_farwest_ccbasic_stabbr, invisible = 'row')
+
+
+
+```
+
+```{r}
+NE <- dat %>% filter(grepl("selective",CCUGPROF)) %>% filter(REGION == "New England") %>% select(c(1:316))
+
+NE_ccbasic_stabbr <- table(NE$CCBASIC, NE$STABBR)
+
+CA_NE_ccbasic_stabbr <- CA(NE_ccbasic_stabbr)
+
+CA_NE_ccbasic_stabbr$eig
+
+plot(CA_NE_ccbasic_stabbr, invisible="row")
+```
+
+
+
+```{r}
+# data cleaning: checking if filter is complete
+gp_filter <- dat %>% filter(INSTNM %in% gp) %>% select(INSTNM)
+
+gp <- data.frame(gp)
+gp <- rename(gp, INSTNM = gp)
+
+#gp %>% filter(!grepl(paste(gp_filter), INSTNM))
+  
+#filter(gp, !grepl(paste(gp_filter$INSTNM, collapse = "|"), INSTNM))
+
+
+```
+
+
+```{r}
+gp_data<- dat %>% filter(INSTNM %in% gp$INSTNM) %>% select(1:316)
+```
+
+```{r}
+gp_ccbasic_region <- table(gp_data$CCBASIC, gp_data$REGION)
+
+CA_gp_ccbasic_region <- CA(gp_ccbasic_region)
+
+plot(CA_gp_ccbasic_region, invisible="row")
+```
+
+```{r}
+#install.packages("tidyverse")
+#install.packages("sf")
+#install.packages("mapview")
+
+library(tidyverse)
+library(sf)
+library(mapview)
+```
+
+```{r}
+gp_data$LATITUDE <- as.double(gp_data$LATITUDE)
+gp_data$LONGITUDE <- as.double(gp_data$LONGITUDE)
+
+mapview(gp_data, xcol = "LONGITUDE", ycol = "LATITUDE", crs = 4269, grid = FALSE)
+```
+
+### statistics on gp_colleges
+```{r}
+lm(formula = ADM_RATE ~ SAT_AVG + SATVR75 + SATMT75  , data = dat ) %>% summary()
+```
+
+```{r}
+plot(lm(formula = ADM_RATE ~ SAT_AVG + SATVR75 + SATMT75, data = dat))
+```
+
+
